@@ -314,3 +314,34 @@ class DiaryShort(BaseModel):
 class DiaryResponse(DiaryShort):
     """Full diary with author details."""
     author: Optional[AuthorShort] = None
+
+
+class DiaryCreate(BaseModel):
+    started_at: date
+    finished_at: date
+    source: str
+    author_id: int
+
+
+# ---------------------------------------------------------------------------
+# Taxonomy CUD schemas
+# ---------------------------------------------------------------------------
+
+class NamedCreate(BaseModel):
+    name: str
+
+
+class PointTypeCreate(BaseModel):
+    name: str
+    has_fixed_coordinates: bool
+    has_address: bool
+
+
+class PointSubTypeCreate(BaseModel):
+    name: str
+    point_type_id: Optional[int] = None
+
+
+class PointSubSubTypeCreate(BaseModel):
+    name: str
+    point_subtype_id: Optional[int] = None

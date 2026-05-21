@@ -1,8 +1,12 @@
-from fastapi import APIRouter, Request
+from datetime import date
+from typing import Optional
+
+from fastapi import APIRouter, Depends, Request
 
 from app.api.cache import cached_proxy_get
 from app.api.proxy import proxy_get, proxy_post
-from app.schemas import NoteCreate, NoteDetailed, NoteFilters, NoteResponse, NoteShort, TagCreate
+from app.auth import admin_required
+from app.schemas import NoteCreate, NoteDetailed, NoteFilters, NoteResponse, TagCreate
 
 router = APIRouter(prefix="/notes", tags=["notes"])
 
@@ -13,13 +17,47 @@ async def note_filters(request: Request):
     return await cached_proxy_get(request.app.state.db_client, request.app.state.filter_cache, "notes/filters")
 
 
-@router.post("/tags", status_code=201)
+@router.get("/")
+async def list_notes(
+    request: Request,
+    search: Optional[str] = None,
+    note_type_ids: Optional[str] = None,
+    temporality_ids: Optional[str] = None,
+    diary_ids: Optional[str] = None,
+    author_ids: Optional[str] = None,
+    tag_ids: Optional[str] = None,
+    point_ids: Optional[str] = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+):
+    """List notes with optional filtering. Multi-value filters take comma-separated ids."""
+    params: dict = {"extended": "true"}
+    if search:
+        params["search"] = search
+    for key, value in (
+        ("note_type_ids", note_type_ids),
+        ("temporality_ids", temporality_ids),
+        ("diary_ids", diary_ids),
+        ("author_ids", author_ids),
+        ("tag_ids", tag_ids),
+        ("point_ids", point_ids),
+    ):
+        if value:
+            params[key] = value
+    if date_from:
+        params["date_from"] = date_from.isoformat()
+    if date_to:
+        params["date_to"] = date_to.isoformat()
+    return await proxy_get(request.app.state.db_client, "notes/", params=params)
+
+
+@router.post("/tags", status_code=201, dependencies=[Depends(admin_required)])
 async def create_tag(body: TagCreate, request: Request):
     """Create a new tag."""
     return await proxy_post(
         request.app.state.db_client,
-        "notes/tags",
-        body.model_dump(),
+        "notes/tags/",
+        body.model_dump(mode="json"),
     )
 
 
@@ -49,11 +87,11 @@ async def get_note(note_id: int, request: Request):
     )
 
 
-@router.post("/", response_model=NoteResponse, status_code=201)
+@router.post("/", response_model=NoteResponse, status_code=201, dependencies=[Depends(admin_required)])
 async def create_note(body: NoteCreate, request: Request):
     """Create a new note."""
     return await proxy_post(
         request.app.state.db_client,
         "notes/",
-        body.model_dump(),
+        body.model_dump(mode="json"),
     )
