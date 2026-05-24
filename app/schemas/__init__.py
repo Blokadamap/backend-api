@@ -10,7 +10,7 @@ from datetime import date
 from enum import Enum
 from typing import Any, List, Optional
 
-from pydantic import BaseModel, RootModel
+from pydantic import BaseModel, RootModel, model_validator
 
 
 # ---------------------------------------------------------------------------
@@ -32,8 +32,22 @@ class ErrorResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 class FilterItem(BaseModel):
+    """A taxonomy item with id + name. database-core returns these as
+    `{<table>_id: ..., name: ...}` (SQLAlchemy column names); this validator
+    folds the *_id field into `id` so the frontend gets a uniform shape.
+    """
     id: int
     name: str
+
+    @model_validator(mode="before")
+    @classmethod
+    def _fold_id(cls, data):
+        if isinstance(data, dict) and "id" not in data:
+            for key in data:
+                if key.endswith("_id"):
+                    data = {**data, "id": data[key]}
+                    break
+        return data
 
 
 # ---------------------------------------------------------------------------
@@ -293,8 +307,8 @@ class PointResponse(BaseModel):
     description: Optional[str] = None
     rayon: Optional[FilterItem] = None
     point_type: Optional[PointTypeItem] = None
-    point_subtype: Optional[FilterItem] = None
-    point_subsubtype: Optional[FilterItem] = None
+    point_subtype: Optional[PointSubTypeItem] = None
+    point_subsubtype: Optional[PointSubSubTypeItem] = None
     point_coordinates: List[CoordinateItem] = []
 
 
